@@ -73,7 +73,7 @@ static const uint8_t coordinaten[]={ //ROW, COLUMN, LENGTH
 	6,6,7, //DERTIEN 13
 	7,0,8, //VEERTIEN 14
 	6,0,5, //KWART 15
-	8,10,4,//EEN uren 16
+	8,10,3,//EEN uren 16
 	9,0,4, //TWEE 17
 	9,5,4, //DRIE 18
 	9,9,4, //VIER 19

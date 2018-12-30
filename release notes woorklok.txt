@@ -1,0 +1,45 @@
+Features woordklok versie 2.0, Dec 2018
+
+Deze versie bestaat uit:
+WoordklokCharles.c (software voor de ATMEGA, compileren met ATMEL STUDIO)
+ESP01WifiManager.ino (software voor de ESP01, compileren met Arduino)
+
+Nieuwe features:
+* Klok toont IP-adres
+* Homepagina http://<ip-adres> toont alle instellingen en menu's om de instellingen te veranderen.
+* Nieuwe animatie-mogelijkheden: uit, Snake en Rain. De bestaande animatie heet nu Snail.
+Snake animatie beweegt niet alleen horizontaal zig zag maar ook verticaal en is daardoor sneller
+Rain animatie veegt van boven naar benden over het display
+Animatie instellen: set?a=0 (uit) set?a=1 (snake) 2 (snail) 3 (rain)
+Animatiesnelheid: set?s=99
+* Helderheid aanpasbaar: vaste waarde: http://ip-adres/set?b=7..230
+Helderheid uit: http://ip-adres/set?b=0
+Helderheid automatisch: http://ip-adres/set?b=a (a=auto)
+* Status van de ESP01 opvragen met http://<ip-adres>/esp
+* Status klok (ATMEGA) opvragen met http://<ip-adres>/status
+* Instellingen aanpassen gaat met http://<ip-adres>/set?x=y
+	set?d=0 (uit) of set?d=1 (aan) zomertijd
+	set?z=1 tijdzone
+	set?f=1 Vijfminutenmodus: f=0: toon iedere minuut. f=1: rond naar beneden af op 5 min. De hoekleds tonen de extra minuten (1, 2, 3 of 4 brandende LEDS). f=2: rond af naar de dichtstbijzijnde 5 minuten. 1 of 2 LEDs rechts tonen extra minuten. 1 of 2 LEDs links tonen dat naar boven is afgerond.
+* al deze instellingen worden in EEPROM opgeslagen
+* Voor testdoeleinden gebruik ik de volgende opdrachten om tijd en datumopdrachten naar de ATMEGA te sturen.
+set?x=<T23:50:00>
+set?x=<D2018-08-13>
+Deze opdrachten worden wel binnen 10 minuten overruled door een normale time en date vanuit NTP.
+* De 5-mintenmodi tonen rond het hele en halve uur de tekst "even voor" of "na"
+* ATMEGA stuurt een json object waarin alle gegevens als antwoord op status
+* Programmeren van de ESP in-circuit is nu beschreven op wiki github
+* Serial io buffering waardoor zomertijdprobleem minder vaak voorkomt
+
+Fixed bugs:
+* Bij het ophalen van de status breekt het resultaat af:
+<S>Woordklok OK;T=2018-12-26T12:05:32+0100;192.168.1.100;anim=1-200;zone=1+1;briS>. Het was de buffer size in de ESP01
+* 12:16 (met five=2) wordt kwart voor half twee
+* 12:58 wordt het is twee
+* IE haalt status en esp uit cache. Fix: Expires: -1 header toegevoegd
+Warning: tekenset is niet gedefinieerd. Fix: "text/html; charset=UTF-8"
+* Same Origin Policy (CORS) weer dichtgezet (om weer open te zetten: uncomment de CORS regel in de ESP01 code)
+
+Todo:
+
+Known Bugs:

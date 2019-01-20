@@ -5,3 +5,4 @@ Dit project bestaat uit:
 * een ESP01
 * software voor de ATMEGA (Atmel Studio)
 * software voor de ESP (Arduino)
+Klik op Wiki (hierboven) voor meer informatie

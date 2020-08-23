@@ -11,7 +11,7 @@
 //#define CORS server.sendHeader("Access-Control-Allow-Origin", "*"); server.sendHeader("Access-Control-Allow-Methods", "GET,HEAD,PUT"); 
 #define CORS
 
-#define SERIALINBUFSIZE 150
+#define SERIALINBUFSIZE 3200
 
 ESP8266WebServer server(80);    // Create a webserver object that listens for HTTP request on port 80
 WiFiUDP UDPNTPClient;  
@@ -23,19 +23,23 @@ uint16_t numberOfNtpCalls=0;
 uint16_t numberOfNtpSuccesses=0;
 time_t lastNtpTime=0;
 time_t firstNtpTime=0;
-char version[]="2.0";
+char version[]="2.1";
 
 void handleRoot();
 void handleEsp();
 void handleStatus();
 void handleSet();
+void handleFavicon();
 void handleNotFound();
 
 void setup() {
   Serial.begin(115200);
+  Serial.print ("WK: start with SSID: ");
+  Serial.println(WiFi.SSID());
+  //Serial.println(WiFi.psk()); //stored wireless password
   WiFiManager wifiManager;
   wifiManager.autoConnect("WoordklokSetup", "woordklokcharles");
-  Serial.print("Connected to ");
+  Serial.print("WK: Connected to ");
   Serial.println(WiFi.SSID());
   Serial.printf("Hostname: %s\n", WiFi.hostname().c_str());
   IPAddress ipa=WiFi.localIP();
@@ -53,6 +57,7 @@ void setup() {
   server.on("/status", handleStatus);
   server.on("/esp", handleEsp);
   server.on("/set", handleSet);
+  server.on("/favicon.ico", handleFavicon);
   server.onNotFound(handleNotFound);        // When a client requests an unknown URI
   server.begin();                           // Actually start the server
   Serial.println("HTTP server started");
@@ -99,7 +104,7 @@ void handleStatus(){
   Serial.print("<S>");
 
   //read the response
-  char buf[SERIALINBUFSIZE+3];
+  static char buf[SERIALINBUFSIZE+3];
   char c;
   int i=0;
   int t=0;
@@ -125,7 +130,7 @@ void handleStatus(){
       delay(10);
       t++;
     }
-  }while((c!='}')&&(i<SERIALINBUFSIZE)&&(t<400));
+  }while((c!='}')&&(i<SERIALINBUFSIZE)&&(t<4000));
   CORS;
   server.sendHeader("Expires", "-1");
   if(i>1){
@@ -150,8 +155,15 @@ void handleSet(){
   }
 }
 
+void handleFavicon(){
+  Serial.println("handleFavicon");
+  CORS;
+  server.send(200, "application/json", "");
+}
+
 void handleNotFound(){
-  Serial.println("handleNotFound");
+  Serial.print("handleNotFound ");
+  Serial.println(server.uri());
   CORS;
   server.send(404, "text/plain", "404: Not Found!");
 }
@@ -185,62 +197,64 @@ void  NTPRefresh() {
     int cb = UDPNTPClient.parsePacket();
     if (!cb) {
       Serial.println("Ntp no packet yet");
-      //server.send(200, "text/plain", "No NTP packet received!");
     } else {
-      //Serial.println("Ntp packet received; length: " + (String) cb);
-      numberOfNtpSuccesses++;
       UDPNTPClient.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
       unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
       unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
       unsigned long fraction = word(packetBuffer[44], packetBuffer[45]);
       unsigned long secsSince1900 = highWord << 16 | lowWord;
-      unsigned int leapIndicator=packetBuffer[0]>>6;
-      const unsigned long seventyYears = 2208988800UL;
-      unsigned long nu = secsSince1900 - seventyYears;
-      unsigned int msToWait=1000-(1000ULL*fraction/0x10000);
-      delay(msToWait);
-      nu+=2;//because of the delay(1000) earlier and the fraction of seconds
-      //nu+=3600;//because of the time zone
-      //nu+=3600;//because of DST (if applicable -- tbd)
-      setTime(nu);
-      lastNtpTime=nu;
-      if(firstNtpTime==0)firstNtpTime=nu;
-      UDPNTPClient.flush();
-      UDPNTPClient.stop();
-      Serial.println("Ntp packet time is: " + (String) nu);
-      Serial.println("mstowait is: " + (String) msToWait);
-      Serial.println("leapindicator is: " + (String) leapIndicator);
-
-      for(int i=0; i<NTP_PACKET_SIZE; i++){
-        Serial.print(packetBuffer[i]);
-        Serial.print(",");
-        if(i%4==3)Serial.println();
+      if(secsSince1900==0){ //fixed cvdo 2020-08-23
+          Serial.println("Ntp zero seconds");    //in theory this could mean 2036-02-07T06:28:18 but it's more likely an error and we ignore this ntp packer. Also see: The Year 2036 Problem of NTP
+      }else{
+          numberOfNtpSuccesses++;
+          unsigned int leapIndicator=packetBuffer[0]>>6;
+          const unsigned long seventyYears = 2208988800UL;
+          unsigned long nu = secsSince1900 - seventyYears;
+          unsigned int msToWait=1000-(1000ULL*fraction/0x10000);
+          delay(msToWait);
+          nu+=2;//because of the delay(1000) earlier and the fraction of seconds
+          //nu+=3600;//because of the time zone
+          //nu+=3600;//because of DST (if applicable -- tbd)
+          setTime(nu);
+          lastNtpTime=nu;
+          if(firstNtpTime==0)firstNtpTime=nu;
+          UDPNTPClient.flush();
+          UDPNTPClient.stop();
+          Serial.println("Ntp packet time is: " + (String) nu);
+          Serial.println("mstowait is: " + (String) msToWait);
+          Serial.println("leapindicator is: " + (String) leapIndicator);
+    
+          for(int i=0; i<NTP_PACKET_SIZE; i++){
+            Serial.print(packetBuffer[i]);
+            Serial.print(",");
+            if(i%4==3)Serial.println();
+          }
+          time_t t=now();
+    
+          Serial.print("<T");
+          if(hour(t)<10)Serial.print("0");
+          Serial.print(hour(t));
+          Serial.print(":");
+          if(minute(t)<10)Serial.print("0");
+          Serial.print(minute(t));
+          Serial.print(":");
+          if(second(t)<10)Serial.print("0");
+          Serial.print(second(t));
+          Serial.println(">");
+    
+          delay(100);
+          t=now();
+          Serial.print("<D");
+          Serial.print(year(t));
+          Serial.print("-");
+          if(month(t)<10)Serial.print("0");
+          Serial.print(month(t));
+          delay(1);//for some reason, the transmission of the date sometimes went wrong, so introduced a little delay
+          Serial.print("-");
+          if(day(t)<10)Serial.print("0");
+          Serial.print(day(t));
+          Serial.println(">");
       }
-      time_t t=now();
-
-      Serial.print("<T");
-      if(hour(t)<10)Serial.print("0");
-      Serial.print(hour(t));
-      Serial.print(":");
-      if(minute(t)<10)Serial.print("0");
-      Serial.print(minute(t));
-      Serial.print(":");
-      if(second(t)<10)Serial.print("0");
-      Serial.print(second(t));
-      Serial.println(">");
-
-      delay(100);
-      t=now();
-      Serial.print("<D");
-      Serial.print(year(t));
-      Serial.print("-");
-      if(month(t)<10)Serial.print("0");
-      Serial.print(month(t));
-      delay(1);//for some reason, the transmission of the date sometimes went wrong, so introduced a little delay
-      Serial.print("-");
-      if(day(t)<10)Serial.print("0");
-      Serial.print(day(t));
-      Serial.println(">");
     }
   }
   UDPNTPClient.stop();
@@ -251,7 +265,6 @@ void handleRoot(){
   Serial.println("handleRoot");
   CORS;
   server.send(200, "text/html; charset=UTF-8", 
-  //"<body><title>Woordklok</title>Hier komt de javascript zooi<iframe src=\"esp\"></iframe></body>");
 "<html>"
 "<head>"
 "<title>Woordklok</title>"
@@ -402,5 +415,3 @@ void handleRoot(){
 "</body>"
 "</html>");
 }
-
-
